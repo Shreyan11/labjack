@@ -5,7 +5,7 @@ from PyQt5 import uic
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QPixmap
 #from labjack import ljm
-
+import u3
 import pyqtgraph as pg
 import numpy as np
 import queue
@@ -2527,13 +2527,80 @@ class PlotItem(pg.PlotItem):
         print(self.getLabel('title'))
 
 
+# app = QtWidgets.QApplication(sys.argv)
+
+# setting = Setting()
+# teensy = Teensy()
+# teensy.connect()
+
+# window = PLOT(setting, teensy)
+# app.aboutToQuit.connect(window.event_exit)
+# window.show()
+# sys.exit(app.exec_())
+
+
+class Labjack:
+    def __init__(self):
+        self.RANGE_NAMES = ["AIN0_RANGE", "AIN1_RANGE", "AIN2_RANGE", "AIN3_RANGE", "AIN4_RANGE", "AIN5_RANGE", "AIN6_RANGE", "AIN7_RANGE"]
+        self.RANGE_VALUES = [10.0, 1.0, 0.1, 0.01] # Map to "self.gains". Actual values
+        self.AIN_NAMES = ["AIN0", "AIN1", "AIN2", "AIN3", "AIN4", "AIN5", "AIN6", "AIN7"]
+        
+        self.handle = u3.U3()
+        self.handle.configU3()
+        self.info = self.handle.configU3()
+        print(self.info)
+    
+    def send_message(self, message):
+        self.RTS = True
+        self.COM.write(message.encode('utf-8'))
+        self.RTS = False    
+    
+    def writeGain(self,gainIndex):
+        gainIndex_range = []
+        numNames = len(self.RANGE_NAMES)
+        [gainIndex_range.append(self.RANGE_VALUES[i]) for i in gainIndex]
+        self.handle.writeMem(self.RANGE_NAMES, gainIndex_range)
+        print("Wrote Gains")
+
+    def readGain(self):
+        ranges = []
+        numNames = len(self.RANGE_NAMES)
+        results = self.handle.readRegister(int(len(range(5000, 5000 + numNames))))
+        if isinstance(results, float):
+            ranges.append(round(results, 2))
+        else:
+            ranges = [round(result, 2) for result in results]
+        print(ranges)
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 app = QtWidgets.QApplication(sys.argv)
-
 setting = Setting()
-teensy = Teensy()
-teensy.connect()
-
-window = PLOT(setting, teensy)
-app.aboutToQuit.connect(window.event_exit)
+labjack = Labjack()
+labjack .readGain()
+window = PLOT(setting,labjack)
 window.show()
 sys.exit(app.exec_())
