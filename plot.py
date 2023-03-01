@@ -5,7 +5,7 @@ from PyQt5 import uic
 from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QPixmap
 #from labjack import ljm
-
+import u3
 import pyqtgraph as pg
 import numpy as np
 import queue
@@ -14,6 +14,17 @@ import scipy.signal
 import serial.tools.list_ports
 import pandas as pd
 
+d = u3.U3()
+
+
+d.streamConfig(NumChannels=1, SamplesPerPacket=25, ScanFrequency=1000)
+
+try:
+    d.streamStart()
+
+except:
+    d.streamStop()
+    d.streamStart()
 
 class PLOT(QtWidgets.QMainWindow):
     def __init__(self, setting, labjack):
@@ -1301,18 +1312,19 @@ class PLOT(QtWidgets.QMainWindow):
         self.plot_C4.addWidget(self.C4plotItem)
 
     def stop_xyplot(self):
+        #self.d2= u3.U3()
         if self.OFFLINE == True:
             offline_dialog = QtWidgets.QErrorMessage(self)
             offline_dialog.setWindowModality(QtCore.Qt.WindowModal)
             offline_dialog.setWindowTitle("Offline Mode")
             offline_dialog.showMessage("Offline Mode. Please start \"New Session\"")
-            return
+            
 
         self.pushButtonXYplotStart.setStyleSheet("background-color:none;")
         self.pushButtonXYplotStop.setStyleSheet("background-color:rgb(250,0,0);")
         self.STREAM = False
-        self.labjack.ACQ = False
-        self.labjack.send_message("<T,8,0000,5>")
+        self.d2.ACQ = False
+        # self.d2.writeCal(b"<T,8,0000,5>")
 
     def xyplotDialogReturnOK(self):
         graphIndex = int(self.xyplotDialog.labelGraphIndex.text())
@@ -1580,227 +1592,283 @@ class PLOT(QtWidgets.QMainWindow):
         
         return x_plot,y_plot
 
-    def getStream(self):
-        scanRate = self.setting.SAMPLING
-        avg = self.setting.AVG
-        numAddresses = self.setting.CHANNEL
-        mul = np.array(self.setting.MULTIPLIER)
-        unit = np.array([3.334,3.334,3.334,3.334,3.334,3.334,35.72,35.72])
-        unit2 = np.array([9810,9810,9810,9810,9810,9810,1,1])
+    # def getStream(self):
+    #     scanRate = self.setting.SAMPLING
+    #     avg = self.setting.AVG
+    #     numAddresses = self.setting.CHANNEL
+    #     mul = np.array(self.setting.MULTIPLIER)
+    #     unit = np.array([3.334,3.334,3.334,3.334,3.334,3.334,35.72,35.72])
+    #     unit2 = np.array([9810,9810,9810,9810,9810,9810,1,1])
 
-        effective_sampling = scanRate / avg
-        index_multiplier = int(effective_sampling / 20)
-        index = np.arange(20)
-        index = index * index_multiplier
-        index = index + [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9]
+    #     effective_sampling = scanRate / avg
+    #     index_multiplier = int(effective_sampling / 20)
+    #     index = np.arange(20)
+    #     index = index * index_multiplier
+    #     index = index + [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9]
         
-        self.FFT_DATA = np.zeros(((self.setting.SAMPLING*5),self.setting.CHANNEL))
-        self.labjack.LENGTH = self.setting.SAMPLING
-        self.labjack.ACQ = True
-        #self.labjack.send_message("<S,8,10000,5>")
-        self.labjack.send_message("<S,8,"+str(self.setting.SAMPLING)+",5>")
+    #     self.FFT_DATA = np.zeros(((self.setting.SAMPLING*5),self.setting.CHANNEL))
+    #     self.labjack.LENGTH = self.setting.SAMPLING
+    #     self.labjack.ACQ = True
+    #     #self.labjack.send_message("<S,8,10000,5>")
+    #     self.labjack.send_message("<S,8,"+str(self.setting.SAMPLING)+",5>")
 
-        try:
-            while self.STREAM:
-                ts = time.time()
-                #print("                              STREM qsize:",self.labjack.sec.qsize())
-                time.sleep(0.001)
-                x = np.empty((0, self.setting.CHANNEL))
-                serialBuffer_length = self.labjack.sec.qsize()
-                while (serialBuffer_length) > 0:
-                    tmp = self.labjack.sec.get_nowait()
-                    x = np.append(x, np.array(tmp, dtype='float64'), axis=0)
-                    serialBuffer_length = serialBuffer_length - 1
-                #print("                              STREM DATA",x.shape)
-                #print("                              STREM pend:",self.labjack.sec.qsize())
+    #     try:
+    #         while self.STREAM:
+    #             ts = time.time()
+    #             #print("                              STREM qsize:",self.labjack.sec.qsize())
+    #             time.sleep(0.001)
+    #             x = np.empty((0, self.setting.CHANNEL))
+    #             serialBuffer_length = self.labjack.sec.qsize()
+    #             while (serialBuffer_length) > 0:
+    #                 tmp = self.labjack.sec.get_nowait()
+    #                 x = np.append(x, np.array(tmp, dtype='float64'), axis=0)
+    #                 serialBuffer_length = serialBuffer_length - 1
+    #             #print("                              STREM DATA",x.shape)
+    #             #print("                              STREM pend:",self.labjack.sec.qsize())
 
-                #x = np.random.random((100,8))
-                if x.shape[0] == 0:
+    #             #x = np.random.random((100,8))
+    #             if x.shape[0] == 0:
+    #                 continue
+
+    #             x = x * unit
+    #             # Multiply
+    #             x = x * mul
+
+    #             if self.TEAR_AVG == False:
+    #                 self.input_mean = x.mean(0)
+    #                 self.TEAR_AVG = True
+
+    #             if self.TEAR_AVG == True:
+    #                 x = x - self.input_mean
+
+    #             #FFT Was Here
+
+    #             x, self.LOCALS_ZO = self.filter_data(x, effective_sampling, self.LOCALS_ZO, cutoff=[self.setting.LowerCutoff,self.setting.HigherCutoff], axis=0, filt_order=self.setting.Order)
+    #             v, self.LOCALS_vZO = self.integrate(x, effective_sampling, self.LOCALS_vZO, axis=0, cutoff=[self.setting.LowerCutoff,self.setting.HigherCutoff],filt_order=self.setting.Order,alpha=1)
+    #             d, self.LOCALS_dZO = self.integrate(v, effective_sampling, self.LOCALS_dZO, axis=0, cutoff=[self.setting.LowerCutoff,self.setting.HigherCutoff],filt_order=self.setting.Order,alpha=1)
+    #             diff = np.diff(x,axis=0,prepend=0)
+    #             d[:,6:8] = v[:,6:8]
+    #             v[:,6:8] = x[:,6:8]
+    #             x[:,6:8] = diff[:,6:8]
+
+    #             shift = len(x)
+    #             self.FFT_DATA = np.roll(self.FFT_DATA, -shift, axis=0)
+    #             self.FFT_DATA[-shift:, :] = x
+
+    #             fft_x,fft_y = self.fft(self.FFT_DATA,effective_sampling)
+    #             fft_x = fft_x[1::]
+    #             fft_y = fft_y[1::]
+    #             fft_argmax = np.argmax(fft_y,axis=0)
+    #             self.fft_peak = fft_x[fft_argmax]
+    #             #print("                              STREM self.fft_peak",self.fft_peak)
+
+    #             self.lineEdit_C1_F.setText("{:.3f}".format(self.fft_peak[0]))
+    #             self.lineEdit_C2_F.setText("{:.3f}".format(self.fft_peak[1]))
+    #             self.lineEdit_C3_F.setText("{:.3f}".format(self.fft_peak[2]))
+    #             self.lineEdit_C4_F.setText("{:.3f}".format(self.fft_peak[3]))
+    #             self.lineEdit_C5_F.setText("{:.3f}".format(self.fft_peak[4]))
+    #             self.lineEdit_C6_F.setText("{:.3f}".format(self.fft_peak[5]))
+    #             self.lineEdit_C7_F.setText("{:.3f}".format(self.fft_peak[6]))
+    #             self.lineEdit_C8_F.setText("{:.3f}".format(self.fft_peak[7]))
+
+    #             v = v * unit2
+    #             d = d * unit2
+
+    #             self.accelerationPeak = np.amax(x,axis=0)
+    #             self.velocityPeak = np.amax(v,axis=0)
+    #             self.displacementPeak = np.amax(d,axis=0)
+    #             #print("                                  INDICATORS Peak",np.amax(x,axis=0))
+
+    #             #self.accelerationPeak[0] = 89.888
+    #             #self.velocityPeak[0] = 329.897
+    #             #self.displacementPeak[0] = 98.789
+    #             self.lineEdit_C1_A.setText("{:.3f}".format(self.accelerationPeak[0]))
+    #             self.lineEdit_C1_V.setText("{:.3f}".format(self.velocityPeak[0]))
+    #             self.lineEdit_C1_D.setText("{:.3f}".format(self.displacementPeak[0]))
+    #             self.lineEdit_C2_A.setText("{:.3f}".format(self.accelerationPeak[1]))
+    #             self.lineEdit_C2_V.setText("{:.3f}".format(self.velocityPeak[1]))
+    #             self.lineEdit_C2_D.setText("{:.3f}".format(self.displacementPeak[1]))
+    #             self.lineEdit_C3_A.setText("{:.3f}".format(self.accelerationPeak[2]))
+    #             self.lineEdit_C3_V.setText("{:.3f}".format(self.velocityPeak[2]))
+    #             self.lineEdit_C3_D.setText("{:.3f}".format(self.displacementPeak[2]))
+    #             self.lineEdit_C4_A.setText("{:.3f}".format(self.accelerationPeak[3]))
+    #             self.lineEdit_C4_V.setText("{:.3f}".format(self.velocityPeak[3]))
+    #             self.lineEdit_C4_D.setText("{:.3f}".format(self.displacementPeak[3]))
+    #             self.lineEdit_C5_A.setText("{:.3f}".format(self.accelerationPeak[4]))
+    #             self.lineEdit_C5_V.setText("{:.3f}".format(self.velocityPeak[4]))
+    #             self.lineEdit_C5_D.setText("{:.3f}".format(self.displacementPeak[4]))
+    #             self.lineEdit_C6_A.setText("{:.3f}".format(self.accelerationPeak[5]))
+    #             self.lineEdit_C6_V.setText("{:.3f}".format(self.velocityPeak[5]))
+    #             self.lineEdit_C6_D.setText("{:.3f}".format(self.displacementPeak[5]))
+    #             self.lineEdit_C7_A.setText("{:.3f}".format(self.accelerationPeak[6]))
+    #             self.lineEdit_C7_V.setText("{:.3f}".format(self.velocityPeak[6]))
+    #             self.lineEdit_C7_D.setText("{:.3f}".format(self.displacementPeak[6]))
+    #             self.lineEdit_C8_A.setText("{:.3f}".format(self.accelerationPeak[7]))
+    #             self.lineEdit_C8_V.setText("{:.3f}".format(self.velocityPeak[7]))
+    #             self.lineEdit_C8_D.setText("{:.3f}".format(self.displacementPeak[7]))
+
+    #             if self.fft_peak[0] in self.LOG_DATA:
+    #                 self.LOG_DATA[self.fft_peak[0]][0] = self.displacementPeak[0]
+    #             else:
+    #                 self.LOG_DATA[self.fft_peak[0]] = {}
+    #                 self.LOG_DATA[self.fft_peak[0]][0] = self.displacementPeak[0]
+    #             if self.fft_peak[1] in self.LOG_DATA:
+    #                 self.LOG_DATA[self.fft_peak[1]][1] = self.displacementPeak[1]
+    #             else:
+    #                 self.LOG_DATA[self.fft_peak[1]] = {}
+    #                 self.LOG_DATA[self.fft_peak[1]][1] = self.displacementPeak[1]
+    #             if self.fft_peak[2] in self.LOG_DATA:
+    #                 self.LOG_DATA[self.fft_peak[2]][2] = self.displacementPeak[2]
+    #             else:
+    #                 self.LOG_DATA[self.fft_peak[2]] = {}
+    #                 self.LOG_DATA[self.fft_peak[2]][2] = self.displacementPeak[2]
+    #             if self.fft_peak[3] in self.LOG_DATA:
+    #                 self.LOG_DATA[self.fft_peak[3]][3] = self.displacementPeak[3]
+    #             else:
+    #                 self.LOG_DATA[self.fft_peak[3]] = {}
+    #                 self.LOG_DATA[self.fft_peak[3]][3] = self.displacementPeak[3]
+    #             if self.fft_peak[4] in self.LOG_DATA:
+    #                 self.LOG_DATA[self.fft_peak[4]][4] = self.displacementPeak[4]
+    #             else:
+    #                 self.LOG_DATA[self.fft_peak[4]] = {}
+    #                 self.LOG_DATA[self.fft_peak[4]][4] = self.displacementPeak[4]
+    #             if self.fft_peak[5] in self.LOG_DATA:
+    #                 self.LOG_DATA[self.fft_peak[5]][5] = self.displacementPeak[5]
+    #             else:
+    #                 self.LOG_DATA[self.fft_peak[5]] = {}
+    #                 self.LOG_DATA[self.fft_peak[5]][5] = self.displacementPeak[5]
+    #             if self.fft_peak[6] in self.LOG_DATA:
+    #                 self.LOG_DATA[self.fft_peak[6]][6] = self.displacementPeak[6]
+    #             else:
+    #                 self.LOG_DATA[self.fft_peak[6]] = {}
+    #                 self.LOG_DATA[self.fft_peak[6]][6] = self.displacementPeak[6]
+    #             if self.fft_peak[7] in self.LOG_DATA:
+    #                 self.LOG_DATA[self.fft_peak[7]][7] = self.displacementPeak[7]
+    #             else:
+    #                 self.LOG_DATA[self.fft_peak[7]] = {}
+    #                 self.LOG_DATA[self.fft_peak[7]][7] = self.displacementPeak[7]
+
+    #             x = np.hstack([x,v,d])
+    #             # Store Data in Buffer for File
+    #             self.f.put(x)
+
+    #             if x.shape[0] < 20:
+    #                 self.q.put(x)
+    #             elif x.shape[0] >= 20 and (x.shape[0] % 20 == 0):
+    #                 x_split = np.split(x, 20)
+    #                 for x_sub in x_split:
+    #                     self.q.put(x_sub)
+    #             else:
+    #                 x_split = np.split(x, index[1:])
+    #                 for x_sub in x_split:
+    #                     self.q.put(x_sub)
+    #             #print("F %d" % self.q.qsize())
+    #             #print("                              STREM Time",(time.time()-ts)*1000)
+    #             time.sleep(0.001)
+            # '''
+            # def myStreamReadCallback(arg):
+            #     ret = ljm.eStreamRead(self.labjack.handle)
+            #     result = ret[0]
+            #     # print("Device %d" % ret[1])    #deviceScanBacklog
+            #     # print("Ljm Lib %d" % ret[2])    #ljmScanBackLog
+            #     # print("-------------------")
+            #     x = np.column_stack((result[::14], result[1::14], result[2::14], result[3::14], result[4::14],
+            #                          result[5::14], result[6::14], result[7::14], result[8::14], result[9::14],
+            #                          result[10::14], result[11::14], result[12::14], result[13::14]))
+            #     x = x.reshape(-1, avg, 14).mean(1)
+            #     x = lfilter(b, a, x)
+            #     # Multiply
+            #     x = x * mul
+
+            #     # TEAR
+            #     # if self.TEAR_AVG == True:
+            #     #     x = x - self.input_mean
+
+            #     if self.TEAR_AVG == False:
+            #         self.input_mean = x.mean(0)
+            #         self.TEAR_AVG = True
+
+            #     if self.TEAR_AVG == True:
+            #         x = x - self.input_mean
+
+            #     # Store Data in Buffer for File
+            #     self.f.put(x)
+
+            #     if x.shape[0] < 20:
+            #         self.q.put(x)
+            #     elif x.shape[0] >= 20 and (x.shape[0] % 20 == 0):
+            #         x_split = np.split(x, 20)
+            #         for x_sub in x_split:
+            #             self.q.put(x_sub)
+            #     else:
+            #         x_split = np.split(x, index[1:])
+            #         for x_sub in x_split:
+            #             self.q.put(x_sub)
+            #     # print("F %d" % self.q.qsize())
+            #     if not self.STREAM:
+            #         ljm.eStreamStop(self.labjack.handle)
+
+            # stream = ljm.eStreamStart(self.labjack.handle, scansPerRead, numAddresses, scanList, scanRate)
+            # ljm.setStreamCallback(self.labjack.handle, myStreamReadCallback)
+            # '''
+        # except:
+        #     print("ERROR:")
+
+
+
+
+
+
+######################################################################################################################################################################################################################################################
+    def getStream(self):
+      
+
+
+            
+            # d.streamStart()
+
+            
+            # i = 0
+            
+
+        data1 = d.streamData()
+        
+                
+        for packet in data1:
+            for key, value in packet.items():
+                if isinstance(value, (int, bytes)):
                     continue
-
-                x = x * unit
-                # Multiply
-                x = x * mul
-
-                if self.TEAR_AVG == False:
-                    self.input_mean = x.mean(0)
-                    self.TEAR_AVG = True
-
-                if self.TEAR_AVG == True:
-                    x = x - self.input_mean
-
-                #FFT Was Here
-
-                x, self.LOCALS_ZO = self.filter_data(x, effective_sampling, self.LOCALS_ZO, cutoff=[self.setting.LowerCutoff,self.setting.HigherCutoff], axis=0, filt_order=self.setting.Order)
-                v, self.LOCALS_vZO = self.integrate(x, effective_sampling, self.LOCALS_vZO, axis=0, cutoff=[self.setting.LowerCutoff,self.setting.HigherCutoff],filt_order=self.setting.Order,alpha=1)
-                d, self.LOCALS_dZO = self.integrate(v, effective_sampling, self.LOCALS_dZO, axis=0, cutoff=[self.setting.LowerCutoff,self.setting.HigherCutoff],filt_order=self.setting.Order,alpha=1)
-                diff = np.diff(x,axis=0,prepend=0)
-                d[:,6:8] = v[:,6:8]
-                v[:,6:8] = x[:,6:8]
-                x[:,6:8] = diff[:,6:8]
-
-                shift = len(x)
-                self.FFT_DATA = np.roll(self.FFT_DATA, -shift, axis=0)
-                self.FFT_DATA[-shift:, :] = x
-
-                fft_x,fft_y = self.fft(self.FFT_DATA,effective_sampling)
-                fft_x = fft_x[1::]
-                fft_y = fft_y[1::]
-                fft_argmax = np.argmax(fft_y,axis=0)
-                self.fft_peak = fft_x[fft_argmax]
-                #print("                              STREM self.fft_peak",self.fft_peak)
-
-                self.lineEdit_C1_F.setText("{:.3f}".format(self.fft_peak[0]))
-                self.lineEdit_C2_F.setText("{:.3f}".format(self.fft_peak[1]))
-                self.lineEdit_C3_F.setText("{:.3f}".format(self.fft_peak[2]))
-                self.lineEdit_C4_F.setText("{:.3f}".format(self.fft_peak[3]))
-                self.lineEdit_C5_F.setText("{:.3f}".format(self.fft_peak[4]))
-                self.lineEdit_C6_F.setText("{:.3f}".format(self.fft_peak[5]))
-                self.lineEdit_C7_F.setText("{:.3f}".format(self.fft_peak[6]))
-                self.lineEdit_C8_F.setText("{:.3f}".format(self.fft_peak[7]))
-
-                v = v * unit2
-                d = d * unit2
-
-                self.accelerationPeak = np.amax(x,axis=0)
-                self.velocityPeak = np.amax(v,axis=0)
-                self.displacementPeak = np.amax(d,axis=0)
-                #print("                                  INDICATORS Peak",np.amax(x,axis=0))
-
-                #self.accelerationPeak[0] = 89.888
-                #self.velocityPeak[0] = 329.897
-                #self.displacementPeak[0] = 98.789
-                self.lineEdit_C1_A.setText("{:.3f}".format(self.accelerationPeak[0]))
-                self.lineEdit_C1_V.setText("{:.3f}".format(self.velocityPeak[0]))
-                self.lineEdit_C1_D.setText("{:.3f}".format(self.displacementPeak[0]))
-                self.lineEdit_C2_A.setText("{:.3f}".format(self.accelerationPeak[1]))
-                self.lineEdit_C2_V.setText("{:.3f}".format(self.velocityPeak[1]))
-                self.lineEdit_C2_D.setText("{:.3f}".format(self.displacementPeak[1]))
-                self.lineEdit_C3_A.setText("{:.3f}".format(self.accelerationPeak[2]))
-                self.lineEdit_C3_V.setText("{:.3f}".format(self.velocityPeak[2]))
-                self.lineEdit_C3_D.setText("{:.3f}".format(self.displacementPeak[2]))
-                self.lineEdit_C4_A.setText("{:.3f}".format(self.accelerationPeak[3]))
-                self.lineEdit_C4_V.setText("{:.3f}".format(self.velocityPeak[3]))
-                self.lineEdit_C4_D.setText("{:.3f}".format(self.displacementPeak[3]))
-                self.lineEdit_C5_A.setText("{:.3f}".format(self.accelerationPeak[4]))
-                self.lineEdit_C5_V.setText("{:.3f}".format(self.velocityPeak[4]))
-                self.lineEdit_C5_D.setText("{:.3f}".format(self.displacementPeak[4]))
-                self.lineEdit_C6_A.setText("{:.3f}".format(self.accelerationPeak[5]))
-                self.lineEdit_C6_V.setText("{:.3f}".format(self.velocityPeak[5]))
-                self.lineEdit_C6_D.setText("{:.3f}".format(self.displacementPeak[5]))
-                self.lineEdit_C7_A.setText("{:.3f}".format(self.accelerationPeak[6]))
-                self.lineEdit_C7_V.setText("{:.3f}".format(self.velocityPeak[6]))
-                self.lineEdit_C7_D.setText("{:.3f}".format(self.displacementPeak[6]))
-                self.lineEdit_C8_A.setText("{:.3f}".format(self.accelerationPeak[7]))
-                self.lineEdit_C8_V.setText("{:.3f}".format(self.velocityPeak[7]))
-                self.lineEdit_C8_D.setText("{:.3f}".format(self.displacementPeak[7]))
-
-                if self.fft_peak[0] in self.LOG_DATA:
-                    self.LOG_DATA[self.fft_peak[0]][0] = self.displacementPeak[0]
                 else:
-                    self.LOG_DATA[self.fft_peak[0]] = {}
-                    self.LOG_DATA[self.fft_peak[0]][0] = self.displacementPeak[0]
-                if self.fft_peak[1] in self.LOG_DATA:
-                    self.LOG_DATA[self.fft_peak[1]][1] = self.displacementPeak[1]
-                else:
-                    self.LOG_DATA[self.fft_peak[1]] = {}
-                    self.LOG_DATA[self.fft_peak[1]][1] = self.displacementPeak[1]
-                if self.fft_peak[2] in self.LOG_DATA:
-                    self.LOG_DATA[self.fft_peak[2]][2] = self.displacementPeak[2]
-                else:
-                    self.LOG_DATA[self.fft_peak[2]] = {}
-                    self.LOG_DATA[self.fft_peak[2]][2] = self.displacementPeak[2]
-                if self.fft_peak[3] in self.LOG_DATA:
-                    self.LOG_DATA[self.fft_peak[3]][3] = self.displacementPeak[3]
-                else:
-                    self.LOG_DATA[self.fft_peak[3]] = {}
-                    self.LOG_DATA[self.fft_peak[3]][3] = self.displacementPeak[3]
-                if self.fft_peak[4] in self.LOG_DATA:
-                    self.LOG_DATA[self.fft_peak[4]][4] = self.displacementPeak[4]
-                else:
-                    self.LOG_DATA[self.fft_peak[4]] = {}
-                    self.LOG_DATA[self.fft_peak[4]][4] = self.displacementPeak[4]
-                if self.fft_peak[5] in self.LOG_DATA:
-                    self.LOG_DATA[self.fft_peak[5]][5] = self.displacementPeak[5]
-                else:
-                    self.LOG_DATA[self.fft_peak[5]] = {}
-                    self.LOG_DATA[self.fft_peak[5]][5] = self.displacementPeak[5]
-                if self.fft_peak[6] in self.LOG_DATA:
-                    self.LOG_DATA[self.fft_peak[6]][6] = self.displacementPeak[6]
-                else:
-                    self.LOG_DATA[self.fft_peak[6]] = {}
-                    self.LOG_DATA[self.fft_peak[6]][6] = self.displacementPeak[6]
-                if self.fft_peak[7] in self.LOG_DATA:
-                    self.LOG_DATA[self.fft_peak[7]][7] = self.displacementPeak[7]
-                else:
-                    self.LOG_DATA[self.fft_peak[7]] = {}
-                    self.LOG_DATA[self.fft_peak[7]][7] = self.displacementPeak[7]
+                    for x in value:
+                            
+                        print(x)
+                        
+                        self.q.put(x)
+                        #elemm = self.q[-1]
+                        #print(elemm)
 
-                x = np.hstack([x,v,d])
-                # Store Data in Buffer for File
-                self.f.put(x)
 
-                if x.shape[0] < 20:
-                    self.q.put(x)
-                elif x.shape[0] >= 20 and (x.shape[0] % 20 == 0):
-                    x_split = np.split(x, 20)
-                    for x_sub in x_split:
-                        self.q.put(x_sub)
-                else:
-                    x_split = np.split(x, index[1:])
-                    for x_sub in x_split:
-                        self.q.put(x_sub)
-                #print("F %d" % self.q.qsize())
-                #print("                              STREM Time",(time.time()-ts)*1000)
-                time.sleep(0.001)
-            '''
-            def myStreamReadCallback(arg):
-                ret = ljm.eStreamRead(self.labjack.handle)
-                result = ret[0]
-                # print("Device %d" % ret[1])    #deviceScanBacklog
-                # print("Ljm Lib %d" % ret[2])    #ljmScanBackLog
-                # print("-------------------")
-                x = np.column_stack((result[::14], result[1::14], result[2::14], result[3::14], result[4::14],
-                                     result[5::14], result[6::14], result[7::14], result[8::14], result[9::14],
-                                     result[10::14], result[11::14], result[12::14], result[13::14]))
-                x = x.reshape(-1, avg, 14).mean(1)
-                x = lfilter(b, a, x)
-                # Multiply
-                x = x * mul
+        #else:
+        # os._exit(1)
+            
+        time.sleep(0.01)
 
-                # TEAR
-                # if self.TEAR_AVG == True:
-                #     x = x - self.input_mean
 
-                if self.TEAR_AVG == False:
-                    self.input_mean = x.mean(0)
-                    self.TEAR_AVG = True
+#the changes have been made in only the enclosed part,please take a look               
+###################################################################################################################################################################################################################################################
 
-                if self.TEAR_AVG == True:
-                    x = x - self.input_mean
 
-                # Store Data in Buffer for File
-                self.f.put(x)
 
-                if x.shape[0] < 20:
-                    self.q.put(x)
-                elif x.shape[0] >= 20 and (x.shape[0] % 20 == 0):
-                    x_split = np.split(x, 20)
-                    for x_sub in x_split:
-                        self.q.put(x_sub)
-                else:
-                    x_split = np.split(x, index[1:])
-                    for x_sub in x_split:
-                        self.q.put(x_sub)
-                # print("F %d" % self.q.qsize())
-                if not self.STREAM:
-                    ljm.eStreamStop(self.labjack.handle)
 
-            stream = ljm.eStreamStart(self.labjack.handle, scansPerRead, numAddresses, scanList, scanRate)
-            ljm.setStreamCallback(self.labjack.handle, myStreamReadCallback)
-            '''
-        except:
-            print("ERROR:")
+
+
+
+
+
+
+
+
+
 
     def update_plot(self):
         #self.st = time.time()
@@ -1811,13 +1879,16 @@ class PLOT(QtWidgets.QMainWindow):
             plot_type = self.tabWidget.currentIndex()
             while one:
                 try:
+                    time.sleep(0.1)
                     data = self.q.get_nowait()
                     buffer_length = self.q.qsize()
+                    print(buffer_length)
                     #print("                    PLOT Buffer",buffer_length)
                     while (buffer_length - 19) > 0:
                         data = np.append(data, self.q.get_nowait(), axis=0)
                         buffer_length = buffer_length - 1
-                except queue.Empty:
+                        print(buffer_length)
+                except queue.Empty: 
                     if self.OFFLINE == False:
                         break
 
@@ -2209,7 +2280,7 @@ class Setting:
 
     def setDefault(self):
         self.GAINS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # index to "self.gains". Not Actual values
-        #self.ALIAS = ['Channel 01', 'Channel 02', 'Channel 03', 'Channel 04', 'Channel 05', 'Channel 06', 'Channel 07',
+        #self.A LIAS = ['Channel 01', 'Channel 02', 'Channel 03', 'Channel 04', 'Channel 05', 'Channel 06', 'Channel 07',
                       #'Channel 08', 'Channel 09', 'Channel 10', 'Channel 11', 'Channel 12', 'Channel 13', 'Channel 14']
         self.ALIAS = ['Channel 01', 'Channel 02', 'Channel 03', 'Channel 04', 'Channel 05', 'Channel 06', 'Channel 07', 'Channel 08']
         self.MULTIPLIER = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -2330,135 +2401,159 @@ class Setting:
         self.Order = order
 
 
-class Teensy:
+class Labjack:
+
+    # plt = PLOT()
     def __init__(self):
-        self.RANGE_NAMES = ["AIN0_RANGE", "AIN1_RANGE", "AIN2_RANGE", "AIN3_RANGE", "AIN4_RANGE", "AIN5_RANGE",
-                            "AIN6_RANGE", "AIN7_RANGE", "AIN8_RANGE", "AIN9_RANGE", "AIN10_RANGE", "AIN11_RANGE",
-                            "AIN12_RANGE", "AIN13_RANGE"]
-        self.RANGE_VALUES = [10.0, 1.0, 0.1, 0.01]  # Map to "self.gains". Actual values
-        self.AIN_NAMES = ["AIN0", "AIN1", "AIN2", "AIN3", "AIN4", "AIN5", "AIN6", "AIN7", "AIN8", "AIN9", "AIN10",
-                          "AIN11", "AIN12", "AIN13"]
-        self.PORT = '';
-        self.COM = None
-        self.RTS = False
-        self.ACQ = False
-        self.threadpool = QtCore.QThreadPool()
-        self.raw = queue.Queue(maxsize=40)
-        self.FILE_INIT = True
-        self.PACKET = []
-        self.LENGTH = 10000
-        self.PENDING = []
-        self.sec = queue.Queue(maxsize=40)
-        self.SCALE_FACTOR = 0.00015258789 #Gain:5
-        self.MISSED = 0
+        self.RANGE_VALUES = [10.0, 1.0, 0.1, 0.01] # Map to "self.gains". Actual values
+        self.AIN_NAMES = ["AIN0", "AIN1", "AIN2", "AIN3", "AIN4", "AIN5"]
 
-    def connect(self):
-        connectDialog = PortDialog()
-        if connectDialog.exec_():
-            self.PORT = connectDialog.dd.currentText()
-            if self.PORT != '':
-                self.COM = serial.Serial(self.PORT, 115200, timeout = 0.1)
-                print(self.COM)
-                self.acq_stream = Worker(self.tennsyIO, )
-                self.pack_stream = Worker(self.packet, )
-                self.threadpool.start(self.acq_stream)
-                self.threadpool.start(self.pack_stream)
-            else:
-                print(self.COM)
+        #self.device = u3.U3()
+        #print("Device info: ", self.device.configU3())
+        
 
-    def disconnect(self):
-        self.COM.close()
-        self.COM = None
+    def writeGain(self,gainIndex):
+        self.writeRegister(5000, sum([1<<g for g in gainIndex]))
+        print("Wrote Gains")
+
+    def readGain(self):
+        ranges = "ranges"
+        #results = self.device.readRegister(5000)
+        #ranges = [self.RANGE_VALUES[((int(results) >> (2*i)) & 3)] for i in range(6)]
+        print(ranges)
+        #self.device.close()
+        
+     
+
+
+    # def volt(self):
+    #       d = u3.U3()
+
+    #       # Read from all available analog inputs
+    #       for channel in range(0,19):
+    #           try:
+    #               # Read the voltage from the channel
+    #               voltage = d.getAIN(channel)
+    #               print(f"Voltage reading on channel {channel}: {voltage:.2f} V")
+    #           except:
+    #               # If the voltage reading is not available, print a message
+    #               print(f"Channel {channel} not being read")
+
+    #       # Close the LabJack U3 device
+    #       d.close()
+
+
+    # def volt2(self):
+    #     self.worker_volt = Worker(self.volt)
+    #     self.threadpool.start(worker_volt)
+        
+    # def connect(self):
+    #     connectDialog = PortDialog()
+    #     if connectDialog.exec_():
+    #         self.PORT = connectDialog.dd.currentText()
+    #         if self.PORT != '':
+    #             self.COM = serial.Serial(self.PORT, 115200, timeout = 0.1)
+    #             print(self.COM)
+    #             self.acq_stream = Worker(self.tennsyIO, )
+    #             self.pack_stream = Worker(self.packet, )
+    #             self.threadpool.start(self.acq_stream)
+    #             self.threadpool.start(self.pack_stream)
+    #         else:
+    #             print(self.COM)
+
+    # def disconnect(self):
+    #     self.COM.close()
+    #     self.COM = None
     
-    def send_message(self, message):
-        self.RTS = True
-        self.COM.write(message.encode('utf-8'))
-        self.RTS = False
+    # def send_message(self, message):
+    #     self.RTS = True
+    #     self.COM.write(message.encode('utf-8'))
+    #     self.RTS = False
 
-    def tennsyIO(self):
-        while self.COM != None:
-            #print("LOOP")
-            time.sleep(0.000000001)
-            if self.ACQ and not self.RTS:
-                #rs = time.time()
-                self.raw.put(self.COM.read(800000))
-                #self.raw.put(self.COM.read(self.COM.in_waiting))
-                #print("                            **********", self.COM.in_waiting)
-                #print("ACQ L",self.raw.qsize())
-                #print("ACQ T",(time.time()-rs)*1000)
+    # def tennsyIO(self):
+    #     while self.COM != None:
+    #         #print("LOOP")
+    #         time.sleep(0.000000001)
+    #         if self.ACQ and not self.RTS:
+    #             #rs = time.time()
+    #             self.raw.put(self.COM.read(800000))
+    #             #self.raw.put(self.COM.read(self.COM.in_waiting))
+    #             #print("                            **********", self.COM.in_waiting)
+    #             #print("ACQ L",self.raw.qsize())
+    #             #print("ACQ T",(time.time()-rs)*1000)
 
-    def packet(self):
-        test_miss = 0
-        while self.COM != None:
-            #print("PACK")
-            ps = time.time()
-            serialBuffer_length = self.raw.qsize()
-            #print("PACK qsize:",serialBuffer_length)
-            tmp = []
-            while (serialBuffer_length):
-                tmp.append(self.raw.get_nowait())
-                serialBuffer_length = serialBuffer_length - 1
-            #print("PACK read:",len(tmp))
-            #print("PACK pend:",self.raw.qsize())
-            if len(tmp) != 0:
-                tmp = b''.join(tmp)
-                tmp = tmp.split(b'\n')
-                #print("Length",len(tmp))
-                if len(tmp) == 1:
-                    #print("PACK",tmp)
-                    continue
-                if self.FILE_INIT:
-                    tmp = tmp[1:]
-                    self.FILE_INIT = False
-                else:
-                    #print(tmp[0])
-                    if len(tmp[0]) == 0:
-                        tmp[0] = prev_byte_sample
-                    elif len(prev_byte_sample) != 0:
-                        tmp[0] = prev_byte_sample+tmp[0]
-                    else:
-                        pass
-                prev_byte_sample = tmp[-1]
-                tmp = tmp[:-1]
-                #print(tmp[0])
-                #print(prev_byte_sample)
-                #print("---------------")
-                #print("                    PACKET-B",len(self.PACKET))
-                #print("                    PENDING-B",len(self.PENDING))
-                self.PACKET = self.PENDING + self.PACKET
-                self.PACKET.extend(tmp)
-                self.PENDING = []
-                #print("                    PACKET-A",len(self.PACKET))
-                #print("                    PENDING-A",len(self.PENDING))
-                if len(self.PACKET) >= self.LENGTH:
-                    hex_data = self.PACKET[0:self.LENGTH]
-                    self.PENDING = self.PACKET[self.LENGTH:]
-                    self.PACKET = []
+    # def packet(self):
+    #     test_miss = 0
+    #     while self.COM != None:
+    #         #print("PACK")
+    #         ps = time.time()
+    #         serialBuffer_length = self.raw.qsize()
+    #         #print("PACK qsize:",serialBuffer_length)
+    #         tmp = []
+    #         while (serialBuffer_length):
+    #             tmp.append(self.raw.get_nowait())
+    #             serialBuffer_length = serialBuffer_length - 1
+    #         #print("PACK read:",len(tmp))
+    #         #print("PACK pend:",self.raw.qsize())
+    #         if len(tmp) != 0:
+    #             tmp = b''.join(tmp)
+    #             tmp = tmp.split(b'\n')
+    #             #print("Length",len(tmp))
+    #             if len(tmp) == 1:
+    #                 #print("PACK",tmp)
+    #                 continue
+    #             if self.FILE_INIT:
+    #                 tmp = tmp[1:]
+    #                 self.FILE_INIT = False
+    #             else:
+    #                 #print(tmp[0])
+    #                 if len(tmp[0]) == 0:
+    #                     tmp[0] = prev_byte_sample
+    #                 elif len(prev_byte_sample) != 0:
+    #                     tmp[0] = prev_byte_sample+tmp[0]
+    #                 else:
+    #                     pass
+    #             prev_byte_sample = tmp[-1]
+    #             tmp = tmp[:-1]
+    #             #print(tmp[0])
+    #             #print(prev_byte_sample)
+    #             #print("---------------")
+    #             #print("                    PACKET-B",len(self.PACKET))
+    #             #print("                    PENDING-B",len(self.PENDING))
+    #             self.PACKET = self.PENDING + self.PACKET
+    #             self.PACKET.extend(tmp)
+    #             self.PENDING = []
+    #             #print("                    PACKET-A",len(self.PACKET))
+    #             #print("                    PENDING-A",len(self.PENDING))
+    #             if len(self.PACKET) >= self.LENGTH:
+    #                 hex_data = self.PACKET[0:self.LENGTH]
+    #                 self.PENDING = self.PACKET[self.LENGTH:]
+    #                 self.PACKET = []
 
-                    hex_data = [x.decode("utf-8").strip() for x in hex_data]
-                    dec_channel = [[self.hex2sint(y) for y in x.strip(',').split(',')] for x in hex_data if x[:-1].count(',')==7]
-                    self.MISSED = self.MISSED + (self.LENGTH-len(dec_channel))
-                    #print("                                                            ----------MISSED",self.MISSED)
-                    if test_miss != self.MISSED:
-                        test_miss = self.MISSED
-                        # with open("MISS_" + str(test_miss), 'w+') as f:
-                            # f.write("\n".join(hex_data))
-                        # f.close()
-                        # print("    Previous Byte",prev_byte_sample)
-                    self.sec.put(dec_channel)
-                    #print("                    PENDING-Sec",self.sec.qsize())
-                    #x = np.array(dec_channel)
-                    #print("                    PENDING-Numpy",x.shape)
-            time.sleep(0.001)
+    #                 hex_data = [x.decode("utf-8").strip() for x in hex_data]
+    #                 dec_channel = [[self.hex2sint(y) for y in x.strip(',').split(',')] for x in hex_data if x[:-1].count(',')==7]
+    #                 self.MISSED = self.MISSED + (self.LENGTH-len(dec_channel))
+    #                 #print("                                                            ----------MISSED",self.MISSED)
+    #                 if test_miss != self.MISSED:
+    #                     test_miss = self.MISSED
+    #                     # with open("MISS_" + str(test_miss), 'w+') as f:
+    #                         # f.write("\n".join(hex_data))
+    #                     # f.close()
+    #                     # print("    Previous Byte",prev_byte_sample)
+    #                 self.sec.put(dec_channel)
+    #                 #print("                    PENDING-Sec",self.sec.qsize())
+    #                 #x = np.array(dec_channel)
+    #                 #print("                    PENDING-Numpy",x.shape)
+    #         time.sleep(0.001)
 
-    def hex2sint(self,val):
-        if len(val) == 0:
-            val = '0'
-        try:
-            tmp = int(val,16)
-        except:
-            tmp = 0
-        return "{:.5f}".format(tmp * self.SCALE_FACTOR) if tmp < 32768 else "{:.5f}".format((65535 - tmp) * -1 * self.SCALE_FACTOR)
+    # def hex2sint(self,val):
+    #     if len(val) == 0:
+    #         val = '0'
+    #     try:
+    #         tmp = int(val,16)
+    #     except:
+    #         tmp = 0
+    #     return "{:.5f}".format(tmp * self.SCALE_FACTOR) if tmp < 32768 else "{:.5f}".format((65535 - tmp) * -1 * self.SCALE_FACTOR)
 
 
 
@@ -2528,12 +2623,13 @@ class PlotItem(pg.PlotItem):
 
 
 app = QtWidgets.QApplication(sys.argv)
-
 setting = Setting()
-teensy = Teensy()
-teensy.connect()
+labjack = Labjack()
+labjack .readGain()
+# labjack.check()
+window = PLOT(setting,labjack)
 
-window = PLOT(setting, teensy)
-app.aboutToQuit.connect(window.event_exit)
 window.show()
+# window.volt()
+#window.getStream()
 sys.exit(app.exec_())
